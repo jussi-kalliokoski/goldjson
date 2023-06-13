@@ -10,6 +10,17 @@ type keyStore struct {
 	keys map[uintptr][]byte
 }
 
+func (s keyStore) Clone() keyStore {
+	if s.keys == nil {
+		return s
+	}
+	keys := make(map[uintptr][]byte)
+	for k, v := range s.keys {
+		keys[k] = v
+	}
+	return keyStore{keys}
+}
+
 func (s *keyStore) Put(key string) {
 	if s.keys == nil {
 		s.keys = make(map[uintptr][]byte)

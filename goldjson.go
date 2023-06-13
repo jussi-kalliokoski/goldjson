@@ -42,6 +42,15 @@ func (e *Encoder) NewLine() *LineWriter {
 	return l
 }
 
+// Clone returns a copy that can be safely modified independently from the
+// original.
+func (e *Encoder) Clone() *Encoder {
+	return &Encoder{
+		keys: e.keys.Clone(),
+		w:    e.w,
+	}
+}
+
 // LineWriter represents a line-delimited JSON record/list.
 type LineWriter struct {
 	buf          []byte

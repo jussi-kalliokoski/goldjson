@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"io"
 	"math/rand"
 	"testing"
 	"time"
@@ -233,6 +234,32 @@ func TestPreparedKeys(t *testing.T) {
 	fullString := "abcdefhijklmnopqrstuvw0123456789"
 	specialCharacters := "\n\r\t\\\""
 	rng := rand.New(rand.NewSource(1))
+	encoderSetups := []struct {
+		name  string
+		build func(w io.Writer, pairs [][2]string) *goldjson.Encoder
+	}{
+		{
+			"in one go",
+			func(w io.Writer, pairs [][2]string) *goldjson.Encoder {
+				encoder := goldjson.NewEncoder(w)
+				for _, pair := range pairs {
+					encoder.PrepareKey(pair[0])
+				}
+				return encoder
+			},
+		},
+		{
+			"cloned",
+			func(w io.Writer, pairs [][2]string) *goldjson.Encoder {
+				encoder := goldjson.NewEncoder(w)
+				for _, pair := range pairs {
+					encoder = encoder.Clone()
+					encoder.PrepareKey(pair[0])
+				}
+				return encoder
+			},
+		},
+	}
 	tests := []struct {
 		name  string
 		pairs [][2]string
@@ -246,31 +273,32 @@ func TestPreparedKeys(t *testing.T) {
 		{"special characters substring", [][2]string{{specialCharacters, "abc"}, {specialCharacters[:2], "def"}}},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			var bufReceived bytes.Buffer
-			var bufExpected bytes.Buffer
-			encReceived := goldjson.NewEncoder(&bufReceived)
-			encExpected := goldjson.NewEncoder(&bufExpected)
-			for _, pair := range tt.pairs {
-				encReceived.PrepareKey(pair[0])
-			}
-			lineReceived := encReceived.NewLine()
-			lineExpected := encExpected.NewLine()
+	for _, setup := range encoderSetups {
+		t.Run(setup.name, func(t *testing.T) {
+			for _, tt := range tests {
+				t.Run(tt.name, func(t *testing.T) {
+					var bufReceived bytes.Buffer
+					var bufExpected bytes.Buffer
+					encReceived := setup.build(&bufReceived, tt.pairs)
+					encExpected := goldjson.NewEncoder(&bufExpected)
+					lineReceived := encReceived.NewLine()
+					lineExpected := encExpected.NewLine()
 
-			for _, pair := range tt.pairs {
-				lineReceived.AddString(pair[0], pair[1])
-				lineExpected.AddString(pair[0], pair[1])
-			}
-			_ = lineReceived.End()
-			_ = lineExpected.End()
-			received := bufReceived.Bytes()
-			expected := bufExpected.Bytes()
+					for _, pair := range tt.pairs {
+						lineReceived.AddString(pair[0], pair[1])
+						lineExpected.AddString(pair[0], pair[1])
+					}
+					_ = lineReceived.End()
+					_ = lineExpected.End()
+					received := bufReceived.Bytes()
+					expected := bufExpected.Bytes()
 
-			if i := slicesEqual(expected, received); i != -1 {
-				t.Log(string(expected[i:]))
-				t.Log(string(received[i:]))
-				t.Fatal("mismatched output")
+					if i := slicesEqual(expected, received); i != -1 {
+						t.Log(string(expected[i:]))
+						t.Log(string(received[i:]))
+						t.Fatal("mismatched output")
+					}
+				})
 			}
 		})
 	}
