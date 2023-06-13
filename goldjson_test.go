@@ -304,6 +304,62 @@ func TestPreparedKeys(t *testing.T) {
 	}
 }
 
+func TestStaticFields(t *testing.T) {
+	tests := []struct {
+		name     string
+		build    func(*goldjson.LineWriter)
+		expected string
+	}{
+		{
+			"in first position",
+			func(l *goldjson.LineWriter) {
+				f, fw := goldjson.NewStaticFields()
+				_ = fw.AddMarshal("a", map[string]string{"b": "c"})
+				_ = fw.End()
+				l.AddStaticFields(f)
+			},
+			`{"a":{"b":"c"}}`,
+		},
+		{
+			"in second position",
+			func(l *goldjson.LineWriter) {
+				f, fw := goldjson.NewStaticFields()
+				_ = fw.AddMarshal("c", map[string]string{"x": "y"})
+				_ = fw.End()
+				l.AddString("a", "b")
+				l.AddStaticFields(f)
+			},
+			`{"a":"b","c":{"x":"y"}}`,
+		},
+		{
+			"with trailing fields",
+			func(l *goldjson.LineWriter) {
+				f, fw := goldjson.NewStaticFields()
+				_ = fw.AddMarshal("a", map[string]string{"x": "y"})
+				_ = fw.End()
+				l.AddStaticFields(f)
+				l.AddString("b", "c")
+			},
+			`{"a":{"x":"y"},"b":"c"}`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var buf bytes.Buffer
+			enc := goldjson.NewEncoder(&buf)
+			expected := tt.expected + "\n"
+
+			line := enc.NewLine()
+			tt.build(line)
+			_ = line.End()
+			received := buf.String()
+
+			expectEqual(t, expected, received)
+		})
+	}
+}
+
 func TestErrors(t *testing.T) {
 	t.Run("invalid time", func(t *testing.T) {
 		validTime := baseTime

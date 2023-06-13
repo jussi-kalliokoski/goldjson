@@ -223,14 +223,24 @@ func (l *LineWriter) EndList() {
 	l.buf = append(l.buf, ']')
 }
 
+// AddStaticFields adds StaticFields to the active record.
+func (l *LineWriter) AddStaticFields(staticFields *StaticFields) {
+	l.separator()
+	l.buf = append(l.buf, staticFields.buf...)
+}
+
 func (l *LineWriter) appendKey(key string) {
+	l.separator()
+	if l.isArray&(1<<l.depth) == 0 {
+		l.buf = l.encoder.keys.Append(l.buf, key)
+		l.buf = append(l.buf, ':')
+	}
+}
+
+func (l *LineWriter) separator() {
 	if l.isFirstEntry&(1<<l.depth) == 0 {
 		l.buf = append(l.buf, ',')
 	} else {
 		l.isFirstEntry = l.isFirstEntry ^ (1 << l.depth)
-	}
-	if l.isArray&(1<<l.depth) == 0 {
-		l.buf = l.encoder.keys.Append(l.buf, key)
-		l.buf = append(l.buf, ':')
 	}
 }
